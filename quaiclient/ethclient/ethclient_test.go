@@ -35,6 +35,7 @@ import (
 	"github.com/dominant-strategies/go-quai/crypto"
 	"github.com/dominant-strategies/go-quai/eth"
 	"github.com/dominant-strategies/go-quai/eth/ethconfig"
+	"github.com/dominant-strategies/go-quai/ethdb"
 	"github.com/dominant-strategies/go-quai/node"
 	"github.com/dominant-strategies/go-quai/params"
 	"github.com/dominant-strategies/go-quai/rpc"
@@ -188,8 +189,11 @@ var (
 )
 
 func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
+	// Set location to ZONE_CTX
+	common.NodeLocation = common.Location{0, 0}
 	// Generate test chain.
-	genesis, blocks := generateTestChain()
+	db := rawdb.NewMemoryDatabase()
+	genesis, blocks := generateTestChain(db)
 	// Create node
 	n, err := node.New(&node.Config{})
 	if err != nil {
@@ -197,8 +201,12 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	}
 	// Create quai Service
 	config := &ethconfig.Config{Genesis: genesis}
+	config.Zone = 0
+	config.Miner.ExtraData = []byte("test miner")
 	config.Progpow.PowMode = progpow.ModeFake
-	ethservice, err := eth.New(n, config)
+	config.DomUrl = "http://localhost:8080"
+
+	ethservice, err := eth.NewFake(n, config, db)
 	if err != nil {
 		t.Fatalf("can't create new quai service: %v", err)
 	}
@@ -206,27 +214,32 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	if err := n.Start(); err != nil {
 		t.Fatalf("can't start test node: %v", err)
 	}
-	if _, err := ethservice.BlockChain().InsertChain(blocks[1:]); err != nil {
+
+	if _, err := ethservice.Core().InsertChain(blocks[1:]); err != nil {
 		t.Fatalf("can't import test blocks: %v", err)
 	}
 	return n, blocks
 }
 
-func generateTestChain() (*core.Genesis, []*types.Block) {
-	db := rawdb.NewMemoryDatabase()
-	config := params.AllProgpowProtocolChanges
+func generateTestChain(db ethdb.Database) (*core.Genesis, []*types.Block) {
+	config := params.TestChainConfig
+	config.Location = common.Location{0, 0}
+
 	genesis := &core.Genesis{
-		Config:    config,
-		Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
+		Config:     config,
+		Nonce:      0,
 		ExtraData: []byte("test genesis"),
-		Timestamp: 9000,
-		BaseFee:   big.NewInt(params.InitialBaseFee),
+		GasLimit:   5000000,
+		Difficulty: big.NewInt(300000000),
 	}
 	generate := func(i int, g *core.BlockGen) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 	}
 	gblock := genesis.ToBlock(db)
+
+	config.GenesisHash = gblock.Hash()
+
 	engine := progpow.NewFaker()
 	blocks, _ := core.GenerateChain(config, gblock, engine, db, 1, generate)
 	blocks = append([]*types.Block{gblock}, blocks...)
@@ -305,7 +318,7 @@ func testHeader(t *testing.T, chain []*types.Block, client *rpc.Client) {
 				t.Fatalf("HeaderByNumber(%v) error = %q, want %q", tt.block, err, tt.wantErr)
 			}
 			if got != nil && got.Number() != nil && got.Number().Sign() == 0 {
-				got.Number() = big.NewInt(0) // hack to make DeepEqual work
+				got.SetNumber(big.NewInt(0)) // hack to make DeepEqual work
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("HeaderByNumber(%v)\n   = %v\nwant %v", tt.block, got, tt.want)
@@ -327,7 +340,7 @@ func testBalanceAt(t *testing.T, client *rpc.Client) {
 			want:    testBalance,
 		},
 		"non_existent_account": {
-			account: common.Address{1},
+			account: common.Address{},
 			block:   big.NewInt(1),
 			want:    big.NewInt(0),
 		},
@@ -568,7 +581,7 @@ func sendTransaction(ec *Client) error {
 		return err
 	}
 	// Create transaction
-	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(params.InitialBaseFee), nil)
+	tx := types.NewTx(&types.ExternalTx{})
 	signer := types.LatestSignerForChainID(chainID)
 	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), testKey)
 	if err != nil {

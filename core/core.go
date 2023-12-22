@@ -24,6 +24,7 @@ import (
 	"github.com/dominant-strategies/go-quai/log"
 	"github.com/dominant-strategies/go-quai/params"
 	"github.com/dominant-strategies/go-quai/rlp"
+	"github.com/dominant-strategies/go-quai/rpc"
 	"github.com/dominant-strategies/go-quai/trie"
 	lru "github.com/hnlq715/golang-lru"
 )
@@ -95,6 +96,35 @@ func NewCore(db ethdb.Database, config *Config, isLocalBlock func(block *types.H
 	// Initialize the sync target to current header parent entropy
 	c.syncTarget = c.CurrentHeader()
 
+	c.AppendQueueProcessCache()
+	
+	return c, nil
+}
+
+// Used on unit testing
+func NewFakeCore(db ethdb.Database, config *Config, isLocalBlock func(block *types.Header) bool, txConfig *TxPoolConfig, txLookupLimit *uint64, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis, client *rpc.Client) (*Core, error) {
+	slice, err := NewFakeSlice(db, config, txConfig, txLookupLimit, isLocalBlock, chainConfig, slicesRunning, domClientUrl, subClientUrls, engine, cacheConfig, vmConfig, genesis, client)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &Core{
+		sl:                slice,
+		engine:            engine,
+		quit:              make(chan struct{}),
+		procCounter:       0,
+		normalListBackoff: 1,
+	}
+
+	// Initialize the sync target to current header parent entropy
+	c.syncTarget = c.CurrentHeader()
+
+	c.AppendQueueProcessCache()
+
+	return c, nil
+}
+
+func (c *Core) AppendQueueProcessCache() {
 	appendQueue, _ := lru.New(c_maxAppendQueue)
 	c.appendQueue = appendQueue
 
@@ -107,7 +137,6 @@ func NewCore(db ethdb.Database, config *Config, isLocalBlock func(block *types.H
 	go c.updateAppendQueue()
 	go c.startStatsTimer()
 	go c.checkSyncTarget()
-	return c, nil
 }
 
 // InsertChain attempts to append a list of blocks to the slice, optionally

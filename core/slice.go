@@ -21,6 +21,7 @@ import (
 	"github.com/dominant-strategies/go-quai/log"
 	"github.com/dominant-strategies/go-quai/params"
 	"github.com/dominant-strategies/go-quai/quaiclient"
+	"github.com/dominant-strategies/go-quai/rpc"
 	"github.com/dominant-strategies/go-quai/trie"
 	lru "github.com/hashicorp/golang-lru"
 )
@@ -125,7 +126,61 @@ func NewSlice(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txLooku
 	if nodeCtx != common.PRIME_CTX {
 		go func() {
 			sl.domClient = makeDomClient(domClientUrl)
-		}()
+			}()
+	}
+
+	if err := sl.init(genesis); err != nil {
+		return nil, err
+	}
+
+	sl.CheckForBadHashAndRecover()
+
+	if nodeCtx == common.ZONE_CTX && sl.ProcessingState() {
+		go sl.asyncPendingHeaderLoop()
+	}
+
+	return sl, nil
+}
+
+func NewFakeSlice(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txLookupLimit *uint64, isLocalBlock func(block *types.Header) bool, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis, client *rpc.Client) (*Slice, error) {
+	nodeCtx := common.NodeLocation.Context()
+	sl := &Slice{
+		config:         chainConfig,
+		engine:         engine,
+		sliceDb:        db,
+		quit:           make(chan struct{}),
+		badHashesCache: make(map[common.Hash]bool),
+	}
+
+	var err error
+	sl.hc, err = NewHeaderChain(db, engine, sl.GetPEtxRollupAfterRetryThreshold, sl.GetPEtxAfterRetryThreshold, chainConfig, cacheConfig, txLookupLimit, vmConfig, slicesRunning)
+	if err != nil {
+		return nil, err
+	}
+
+	sl.validator = NewBlockValidator(chainConfig, sl.hc, engine)
+
+	// tx pool is only used in zone
+	if nodeCtx == common.ZONE_CTX && sl.ProcessingState() {
+		sl.txPool = NewTxPool(*txConfig, chainConfig, sl.hc)
+		sl.hc.pool = sl.txPool
+	}
+
+	sl.miner = New(sl.hc, sl.txPool, config, db, chainConfig, engine, isLocalBlock, sl.ProcessingState())
+
+	sl.phCache, _ = lru.New(c_phCacheSize)
+
+	// only set the subClients if the chain is not Zone
+	sl.subClients = make([]*quaiclient.Client, 3)
+	if nodeCtx != common.ZONE_CTX {
+		sl.subClients = makeSubClients(subClientUrls)
+	}
+
+	// only set domClient if the chain is not Prime.
+	if nodeCtx != common.PRIME_CTX {
+			go func ()  {
+				sl.domClient = quaiclient.NewClient(client)
+			}()
 	}
 
 	if err := sl.init(genesis); err != nil {
