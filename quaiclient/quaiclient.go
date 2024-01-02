@@ -34,10 +34,41 @@ import (
 
 var exponentialBackoffCeilingSecs int64 = 60 // 1 minute
 
+type IClient interface {
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	Close()
+	QuaiSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (*rpc.ClientSubscription, error)
+}
+
+// Used on unit tests
+type TestRpcClient struct {
+
+}
+
+func (trc *TestRpcClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	if method == "quai_updateDom" {
+		return nil
+	}
+	if method == "eth_getBlockByNumber" {
+		return nil
+	}
+	if method == "quai_sendPendingEtxsToDom" {
+		return nil
+	}
+	return fmt.Errorf("method %s is not implemented", method)
+}
+
+func (trc *TestRpcClient) Close() {
+}
+
+func (trc *TestRpcClient) QuaiSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (*rpc.ClientSubscription, error) {
+	return &rpc.ClientSubscription{}, nil
+}
+
 // Client defines typed wrappers for the Quai RPC API.
 type Client struct {
-	c *rpc.Client
-}
+		c IClient
+	}
 
 // Dial connects a client to the given URL.
 func Dial(rawurl string) (*Client, error) {
@@ -74,7 +105,7 @@ func DialContext(ctx context.Context, rawurl string) (*Client, error) {
 }
 
 // NewClient creates a client that uses the given RPC client.
-func NewClient(c *rpc.Client) *Client {
+func NewClient(c IClient) *Client {
 	return &Client{c}
 }
 

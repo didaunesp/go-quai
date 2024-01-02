@@ -50,7 +50,7 @@ var (
 	_ = quai.ContractCaller(&Client{})
 	_ = quai.GasEstimator(&Client{})
 	_ = quai.GasPricer(&Client{})
-	_ = quai.LogFilterer(&Client{})
+	//_ = quai.LogFilterer(&Client{})
 	_ = quai.PendingStateReader(&Client{})
 	// _ = quai.PendingStateEventer(&Client{})
 	_ = quai.PendingContractCaller(&Client{})
@@ -204,7 +204,6 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	config.Zone = 0
 	config.Miner.ExtraData = []byte("test miner")
 	config.Progpow.PowMode = progpow.ModeFake
-	config.DomUrl = "http://localhost:8080"
 
 	ethservice, err := eth.NewFake(n, config, db)
 	if err != nil {
