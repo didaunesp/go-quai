@@ -78,12 +78,18 @@ type Core struct {
 	quit chan struct{} // core quit channel
 }
 
+type NewCoreFunction func(db ethdb.Database, config *Config, isLocalBlock func(block *types.Header) bool, txConfig *TxPoolConfig, txLookupLimit *uint64, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis) (*Core, error)
+
 func NewCore(db ethdb.Database, config *Config, isLocalBlock func(block *types.Header) bool, txConfig *TxPoolConfig, txLookupLimit *uint64, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis) (*Core, error) {
 	slice, err := NewSlice(db, config, txConfig, txLookupLimit, isLocalBlock, chainConfig, slicesRunning, domClientUrl, subClientUrls, engine, cacheConfig, vmConfig, genesis)
 	if err != nil {
 		return nil, err
 	}
 
+	return newCommonCore(slice, engine)
+}
+
+func newCommonCore(slice *Slice, engine consensus.Engine) (*Core, error) {
 	c := &Core{
 		sl:                slice,
 		engine:            engine,
@@ -96,31 +102,19 @@ func NewCore(db ethdb.Database, config *Config, isLocalBlock func(block *types.H
 	c.syncTarget = c.CurrentHeader()
 
 	c.AppendQueueProcessCache()
-	
+
 	return c, nil
 }
 
 // Used on unit testing
 func NewFakeCore(db ethdb.Database, config *Config, isLocalBlock func(block *types.Header) bool, txConfig *TxPoolConfig, txLookupLimit *uint64, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis) (*Core, error) {
 	slice, err := NewFakeSlice(db, config, txConfig, txLookupLimit, isLocalBlock, chainConfig, slicesRunning, domClientUrl, subClientUrls, engine, cacheConfig, vmConfig, genesis)
+
 	if err != nil {
 		return nil, err
 	}
-
-	c := &Core{
-		sl:                slice,
-		engine:            engine,
-		quit:              make(chan struct{}),
-		procCounter:       0,
-		normalListBackoff: 1,
-	}
-
-	// Initialize the sync target to current header parent entropy
-	c.syncTarget = c.CurrentHeader()
-
-	c.AppendQueueProcessCache()
-
-	return c, nil
+	
+	return newCommonCore(slice, engine)
 }
 
 func (c *Core) AppendQueueProcessCache() {
