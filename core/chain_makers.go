@@ -217,7 +217,8 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	chainreader := &fakeChainReader{config: config}
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
-		b.header = makeHeader(chainreader, parent, statedb, b.engine, config.GenesisHash)
+		b.subManifest = types.BlockManifest{parent.Hash()}
+		b.header = makeHeader(chainreader, parent, statedb, b.engine)
 
 		// Execute any user modifications to the block
 		if gen != nil {
@@ -253,7 +254,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	return blocks, receipts
 }
 
-func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine, genesisHash common.Hash) *types.Header {
+func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
 	var time uint64
 	if parent.Time() == 0 {
 		time = 10
@@ -272,12 +273,12 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 	header.SetTime(time)
 	header.SetBaseFee(misc.CalcBaseFee(chain.Config(), parent.Header()))
 
-	//new array receive its first value as genesisHash
-	manifest := types.BlockManifest{genesisHash}
+	header.SetLocation(common.Location{0, 0})
+
+	manifest := types.BlockManifest{parent.Hash()}
 	header.SetManifestHash(types.DeriveSha(manifest, trie.NewStackTrie(nil)))
 
-	header.SetLocation(common.Location{0,0})
-	
+
 	return header
 }
 
