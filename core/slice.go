@@ -96,7 +96,7 @@ func NewSlice(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txLooku
 	if nodeCtx != common.PRIME_CTX {
 		go func() {
 			sl.domClient = makeDomClient(domClientUrl)
-			}()
+		}()
 	}
 
 	return sl, nil
@@ -159,11 +159,10 @@ func NewFakeSlice(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txL
 
 	// only set domClient if the chain is not Prime.
 	if nodeCtx != common.PRIME_CTX {
-		go func ()  {
+		go func() {
 			sl.domClient = quaiclient.NewClient(&quaiclient.TestRpcClient{})
 		}()
 	}
-
 
 	return sl, nil
 }
