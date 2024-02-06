@@ -19,6 +19,7 @@ import (
 	"github.com/dominant-strategies/go-quai/ethdb"
 	"github.com/dominant-strategies/go-quai/event"
 	"github.com/dominant-strategies/go-quai/log"
+	"github.com/dominant-strategies/go-quai/node"
 	"github.com/dominant-strategies/go-quai/params"
 	"github.com/dominant-strategies/go-quai/quaiclient"
 	"github.com/dominant-strategies/go-quai/trie"
@@ -85,24 +86,25 @@ type Slice struct {
 }
 
 func NewSlice(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txLookupLimit *uint64, isLocalBlock func(block *types.Header) bool, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis) (*Slice, error) {
-	nodeCtx := common.NodeLocation.Context()
-	sl, err := newSliceCommon(db, config, txConfig, txLookupLimit, isLocalBlock, chainConfig, slicesRunning, domClientUrl, subClientUrls, engine, cacheConfig, vmConfig, genesis)
+	//nodeCtx := common.NodeLocation.Context()
+	// sl, err := newSliceCommon(db, config, txConfig, txLookupLimit, isLocalBlock, chainConfig, slicesRunning, domClientUrl, subClientUrls, engine, cacheConfig, vmConfig, genesis)
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	// only set domClient if the chain is not Prime.
-	if nodeCtx != common.PRIME_CTX {
-		go func() {
-			sl.domClient = makeDomClient(domClientUrl)
-		}()
-	}
+	// // only set domClient if the chain is not Prime.
+	// if nodeCtx != common.PRIME_CTX {
+	// 	go func() {
+	// 		sl.domClient = makeDomClient(domClientUrl)
+	// 	}()
+	// }
 
-	return sl, nil
+	//return sl, nil
+	return &Slice{}, nil
 }
 
-func newSliceCommon(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txLookupLimit *uint64, isLocalBlock func(block *types.Header) bool, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis) (*Slice, error) {
+func newSliceCommon(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txLookupLimit *uint64, isLocalBlock func(block *types.Header) bool, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis, stack *node.Node) (*Slice, error) {
 	nodeCtx := common.NodeLocation.Context()
 	sl := &Slice{
 		config:         chainConfig,
@@ -148,10 +150,10 @@ func newSliceCommon(db ethdb.Database, config *Config, txConfig *TxPoolConfig, t
 	return sl, nil
 }
 
-func NewFakeSlice(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txLookupLimit *uint64, isLocalBlock func(block *types.Header) bool, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis) (*Slice, error) {
+func NewFakeSlice(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txLookupLimit *uint64, isLocalBlock func(block *types.Header) bool, chainConfig *params.ChainConfig, slicesRunning []common.Location, domClientUrl string, subClientUrls []string, engine consensus.Engine, cacheConfig *CacheConfig, vmConfig vm.Config, genesis *Genesis, stack *node.Node) (*Slice, error) {
 	nodeCtx := common.NodeLocation.Context()
 
-	sl, err := newSliceCommon(db, config, txConfig, txLookupLimit, isLocalBlock, chainConfig, slicesRunning, domClientUrl, subClientUrls, engine, cacheConfig, vmConfig, genesis)
+	sl, err := newSliceCommon(db, config, txConfig, txLookupLimit, isLocalBlock, chainConfig, slicesRunning, domClientUrl, subClientUrls, engine, cacheConfig, vmConfig, genesis, stack)
 
 	if err != nil {
 		return nil, err
@@ -160,7 +162,11 @@ func NewFakeSlice(db ethdb.Database, config *Config, txConfig *TxPoolConfig, txL
 	// only set domClient if the chain is not Prime.
 	if nodeCtx != common.PRIME_CTX {
 		go func() {
-			sl.domClient = quaiclient.NewClient(&quaiclient.TestRpcClient{})
+			client, err := stack.Attach()
+			if err != nil {
+				log.Error("Error attaching rpc client", "err", err)
+			}
+			sl.domClient = quaiclient.NewClient(client)
 		}()
 	}
 

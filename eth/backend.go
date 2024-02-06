@@ -89,19 +89,20 @@ type Quai struct {
 // New creates a new Quai object (including the
 // initialisation of the common Quai object)
 func New(stack *node.Node, config *ethconfig.Config) (*Quai, error) {
-	chainDb, err := stack.OpenDatabaseWithFreezer("chaindata", config.DatabaseCache, config.DatabaseHandles, config.DatabaseFreezer, "eth/db/chaindata/", false)
+	//chainDb, err := stack.OpenDatabaseWithFreezer("chaindata", config.DatabaseCache, config.DatabaseHandles, config.DatabaseFreezer, "eth/db/chaindata/", false)
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	eth, err := newCommon(config, chainDb, stack, core.NewCore)
-	
-	if err != nil {
-		return nil, err
-	}
+	// eth, err := newCommon(config, chainDb, stack, core.NewCore)
 
-	return eth, nil
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// return eth, nil
+	return nil, nil
 }
 
 func newCommon(config *ethconfig.Config, chainDb ethdb.Database, stack *node.Node, coreFunction core.NewCoreFunction) (*Quai, error) {
@@ -109,7 +110,7 @@ func newCommon(config *ethconfig.Config, chainDb ethdb.Database, stack *node.Nod
 	if !config.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}
-	
+
 	if config.Miner.GasPrice == nil || config.Miner.GasPrice.Cmp(common.Big0) <= 0 {
 		log.Warn("Sanitizing invalid miner gas price", "provided", config.Miner.GasPrice, "updated", ethconfig.Defaults.Miner.GasPrice)
 		config.Miner.GasPrice = new(big.Int).Set(ethconfig.Defaults.Miner.GasPrice)
@@ -177,7 +178,6 @@ func newCommon(config *ethconfig.Config, chainDb ethdb.Database, stack *node.Nod
 		}
 	}
 
-
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = stack.ResolvePath(config.TxPool.Journal)
 	}
@@ -199,7 +199,7 @@ func newCommon(config *ethconfig.Config, chainDb ethdb.Database, stack *node.Nod
 	)
 
 	var err error
-	eth.core, err = coreFunction(chainDb, &config.Miner, eth.isLocalBlock, &config.TxPool, &config.TxLookupLimit, chainConfig, eth.config.SlicesRunning, eth.config.DomUrl, eth.config.SubUrls, eth.engine, cacheConfig, vmConfig, config.Genesis)
+	eth.core, err = coreFunction(chainDb, &config.Miner, eth.isLocalBlock, &config.TxPool, &config.TxLookupLimit, chainConfig, eth.config.SlicesRunning, eth.config.DomUrl, eth.config.SubUrls, eth.engine, cacheConfig, vmConfig, config.Genesis, stack)
 
 	if err != nil {
 		return nil, err
@@ -265,7 +265,7 @@ func newCommon(config *ethconfig.Config, chainDb ethdb.Database, stack *node.Nod
 				"age", common.PrettyAge(t))
 		}
 	}
-	
+
 	return eth, err
 }
 
@@ -274,7 +274,7 @@ func newCommon(config *ethconfig.Config, chainDb ethdb.Database, stack *node.Nod
 func NewFake(stack *node.Node, config *ethconfig.Config, chainDb ethdb.Database) (*Quai, error) {
 
 	eth, err := newCommon(config, chainDb, stack, core.NewFakeCore)
-	
+
 	if err != nil {
 		return nil, err
 	}
