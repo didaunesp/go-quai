@@ -93,15 +93,15 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	return n, blocks
 }
 
+// Generate a zone chain with genesis + 1 block
 func generateTestChain(db ethdb.Database) (*core.Genesis, []*types.Block) {
 	config := params.TestChainConfig
 	config.Location = common.Location{0, 0}
-	config.ChainID = big.NewInt(1)
 
 	genesis := &core.Genesis{
 		Config:     config,
 		Nonce:      0,
-		ExtraData: []byte("test genesis"),
+		ExtraData:  []byte("test genesis"),
 		GasLimit:   5000000,
 		Difficulty: big.NewInt(300000000),
 	}
@@ -175,8 +175,8 @@ func testHeader(t *testing.T, chain []*types.Block, client *rpc.Client) {
 			want:  chain[1].Header(),
 		},
 		"future_block": {
-			block:   "0xffffff",
-			want:    nil,
+			block: "0xffffff",
+			want:  nil,
 		},
 	}
 	for name, tt := range tests {
