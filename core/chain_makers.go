@@ -217,7 +217,9 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	chainreader := &fakeChainReader{config: config}
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
-		b.subManifest = types.BlockManifest{parent.Hash()}
+		if config.Location.Context() == common.ZONE_CTX {
+			b.subManifest = types.BlockManifest{parent.Hash()}
+		}
 		b.header = makeHeader(chainreader, parent, statedb, b.engine)
 
 		// Execute any user modifications to the block
@@ -277,16 +279,18 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 	header.SetEVMRoot(state.IntermediateRoot(true))
 	header.SetParentHash(parent.Hash(), nodeCtx)
 	header.SetCoinbase(parent.Coinbase())
-	header.SetDifficulty(engine.CalcDifficulty(chain, parent.Header()))
 	header.SetGasLimit(parent.GasLimit())
 	header.SetNumber(new(big.Int).Add(parent.Number(nodeCtx), common.Big1), nodeCtx)
 	header.SetTime(time)
 	header.SetBaseFee(misc.CalcBaseFee(chain.Config(), parent.Header()))
-
 	header.SetLocation(nodeLoc)
-
-	manifest := types.BlockManifest{parent.Hash()}
-	header.SetManifestHash(types.DeriveSha(manifest, trie.NewStackTrie(nil)), nodeCtx)
+	if nodeCtx == common.ZONE_CTX {
+		manifest := types.BlockManifest{parent.Hash()}
+		header.SetManifestHash(types.DeriveSha(manifest, trie.NewStackTrie(nil)), nodeCtx)
+		header.SetDifficulty(engine.CalcDifficulty(chain, parent.Header()))
+	} else {
+		header.SetDifficulty(parent.Difficulty(nodeCtx))
+	}
 
 	return header
 }

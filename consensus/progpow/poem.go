@@ -1,6 +1,7 @@
 package progpow
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/dominant-strategies/go-quai/common"
@@ -36,6 +37,7 @@ func (progpow *Progpow) CalcOrder(header *types.Header) (*big.Int, int, error) {
 	primeDeltaSTarget = new(big.Int).Mul(zoneThresholdS, primeDeltaSTarget)
 
 	primeBlockEntropyThreshold := new(big.Int).Add(zoneThresholdS, common.BitsToBigBits(params.PrimeEntropyTarget))
+	fmt.Println(totalDeltaSPrime.Cmp(primeDeltaSTarget))
 	if intrinsicS.Cmp(primeBlockEntropyThreshold) > 0 && totalDeltaSPrime.Cmp(primeDeltaSTarget) > 0 {
 		return intrinsicS, common.PRIME_CTX, nil
 	}
