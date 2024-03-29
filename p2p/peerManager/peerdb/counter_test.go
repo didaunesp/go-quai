@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/dominant-strategies/go-quai/cmd/utils"
-	"github.com/ipfs/go-datastore"
+	datastore "github.com/ipfs/go-datastore"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
@@ -15,9 +15,10 @@ import (
 func TestCounter(t *testing.T) {
 	viper.GetViper().Set(utils.DataDirFlag.Name, os.TempDir())
 	dbDir := "testdb"
+	locationName := "zone-0-0"
 
 	// creat a new peerdb
-	ps, err := NewPeerDB(dbDir)
+	ps, err := NewPeerDB(dbDir, locationName)
 	require.NoError(t, err)
 
 	// create 10 peers
@@ -30,7 +31,7 @@ func TestCounter(t *testing.T) {
 			require.NoError(t, err)
 
 			// remove the db file
-			dbFile := viper.GetString(utils.DataDirFlag.Name) + "/" + dbDir
+			dbFile := viper.GetString(utils.DataDirFlag.Name) + "/" + locationName + dbDir
 			err = os.RemoveAll(dbFile)
 			require.NoError(t, err)
 		},
@@ -54,7 +55,7 @@ func TestCounter(t *testing.T) {
 		require.NoError(t, err)
 
 		// reopen the db
-		ps, err = NewPeerDB(dbDir)
+		ps, err = NewPeerDB(dbDir, locationName)
 		require.NoError(t, err)
 
 		// verify the counter
